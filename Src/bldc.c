@@ -8,6 +8,7 @@
 #include "stdio.h"
 #include "bldc.h"
 #include "math.h"
+#include "PID.h"
 
 
 #define TIM1CH1(x) TIM1->CCR1=x
@@ -27,6 +28,11 @@ uint8_t BLDC_STATE[6] = {0,0,0,0,0,0};
 uint16_t PWMWIDTH=0;
 extern uint32_t time;
 extern uint32_t localTime;
+
+
+extern PIDController pid;
+extern uint16_t PID_targetSpeed;
+extern uint16_t PID_measuredSpeed;
 
 uint16_t noOfHSCuts=0;
 
@@ -153,6 +159,12 @@ void toggleGreenLED(void){
 
 void BLDC_Init(void) {
 	BLDC_MotorResetInverter();
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+	if(htim->Instance == TIM3){
+		//PIDController_Update(&pid, PID_targetSpeed, PID_measuredSpeed);
+	}
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_pin) {

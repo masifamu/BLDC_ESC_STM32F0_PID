@@ -26,7 +26,6 @@
 #include "usart.h"
 #include "gpio.h"
 
-
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "bldc.h"
@@ -67,6 +66,10 @@ uint32_t localTime=0;
 
 extern uint16_t noOfHSCuts;
 
+uint16_t PID_targetSpeed=0,PID_measuredSpeed=0;
+/* Initialise PID controller */
+	PIDController pid = { PID_KP, PID_KI, PID_KD,PID_TAU,PID_LIM_MIN, PID_LIM_MAX,PID_LIM_MIN_INT, PID_LIM_MAX_INT,SAMPLE_TIME_S };
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -89,7 +92,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	uint16_t pwmWidth=0;
 	uint16_t throtle=0;
-	uint16_t PID_targetSpeed=0,PID_measuredSpeed=0;
+	
 #ifdef MEASURE_POWER
 	uint16_t battVoltage=0,currentDrawn=0;
 	float powerConsumed=0.0f;
@@ -129,16 +132,16 @@ int main(void)
   MX_ADC_Init();
   MX_TIM1_Init();
   MX_USART1_UART_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+	
 	HAL_ADCEx_Calibration_Start(&hadc);
 	HAL_ADC_Start_DMA(&hadc,(uint32_t*)&ADCBuffer,6);
 	
 	BLDC_Init();
-	/* Initialise PID controller */
-	PIDController pid = { PID_KP, PID_KI, PID_KD,PID_TAU,PID_LIM_MIN, PID_LIM_MAX,PID_LIM_MIN_INT, PID_LIM_MAX_INT,SAMPLE_TIME_S };
+	
 	PIDController_Init(&pid);
 	
-  /* USER CODE END 2 */
 	FIO_SET(GPIOA, BLUE_LED);
 	
 	msStampS=time;
@@ -147,6 +150,8 @@ int main(void)
 	msStampV=time;
 	timeStampPower = time;
 #endif
+  /* USER CODE END 2 */
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -206,6 +211,9 @@ int main(void)
 			rpm=(uint16_t)((noOfHSCuts*60)/HSCutsInOneCycle);
 			noOfHSCuts=0;
 			msStampS=time;
+			static int filterRPM;
+			filterRPM = ((filterRPM<<3)-filterRPM+rpm)>>3; 
+			rpm=filterRPM;
 		}
 
 #ifdef UART_THROTTLE_DEBUG
@@ -251,8 +259,7 @@ int main(void)
 		//implementing the PID controller here.
 		PID_targetSpeed = 100;//mapFunction(throtle);
 		PID_measuredSpeed = rpm;
-		/* Compute new control signal */
-    PIDController_Update(&pid, PID_targetSpeed, PID_measuredSpeed);
+		PIDController_Update(&pid, PID_targetSpeed, PID_measuredSpeed);
    }
   /* USER CODE END 3 */
 }

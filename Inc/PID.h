@@ -15,17 +15,17 @@
 //#define PID_KP  1.0f//50.0f
 //#define PID_KI  15.85f//0.5f
 //#define PID_KD  0.44f//0.25f
-#define PID_KP  50.0f
+#define PID_KP  0.5f
 #define PID_KI  0.5f
-#define PID_KD  0.25f
+#define PID_KD  0.004f
 
-#define PID_TAU 0.002f//lower value avoids the higher amplitude overshoot
+#define PID_TAU 0.02f//lower value avoids the higher amplitude overshoot
 
 #define PID_LIM_MIN    5.0f
 #define PID_LIM_MAX  240.0f//50% of allowable pwmwidth
 
-#define PID_LIM_MIN_INT -100.0f
-#define PID_LIM_MAX_INT  100.0f
+#define PID_LIM_MIN_INT -500.0f
+#define PID_LIM_MAX_INT  500.0f
 
 #define SAMPLE_TIME_S 0.01f
 
