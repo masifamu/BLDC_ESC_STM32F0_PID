@@ -212,7 +212,7 @@ int main(void)
 			noOfHSCuts=0;
 			msStampS=time;
 			static int filterRPM;
-			filterRPM = ((filterRPM<<3)-filterRPM+rpm)>>3; 
+			filterRPM = ((filterRPM<<2)-filterRPM+rpm)>>2; 
 			rpm=filterRPM;
 		}
 
@@ -243,8 +243,14 @@ int main(void)
 			}
 			
 			FIO_SET(GPIOB, GREEN_LED);
+			
     	pwmWidth=(uint16_t)pid.out;//BLDC_ADCToPWM(throtle);
 			BLDC_SetPWM(pwmWidth);
+			
+			//implementing the PID controller here.
+			PID_targetSpeed = 100;//mapFunction(throtle);
+			PID_measuredSpeed = rpm;
+			
     }else{
 			if (BLDC_MotorGetSpin() != BLDC_STOP) {
 				//meaning motor is still running
@@ -253,13 +259,12 @@ int main(void)
 					BLDC_MotorSetSpin(BLDC_STOP);//manage it
 				}
 			}
+			//implementing the PID controller here.
+			PID_targetSpeed = 0;
+			PID_measuredSpeed = rpm;
+			
 			toggleGreenLED();
     }
-		
-		//implementing the PID controller here.
-		PID_targetSpeed = 100;//mapFunction(throtle);
-		PID_measuredSpeed = rpm;
-		PIDController_Update(&pid, PID_targetSpeed, PID_measuredSpeed);
    }
   /* USER CODE END 3 */
 }

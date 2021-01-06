@@ -33,6 +33,7 @@ extern uint32_t localTime;
 extern PIDController pid;
 extern uint16_t PID_targetSpeed;
 extern uint16_t PID_measuredSpeed;
+extern uint16_t rpm;
 
 uint16_t noOfHSCuts=0;
 
@@ -151,7 +152,7 @@ uint8_t isThrotleProperlyConnected(uint32_t timeValue, uint16_t throtleValue){
 
 void toggleGreenLED(void){
 	static uint16_t counter=0;
-	if(++counter > 1024){
+	if(++counter > 128){
 		counter=0;
 		FIO_FLP(GPIOB,GREEN_LED);
 	}
@@ -163,7 +164,7 @@ void BLDC_Init(void) {
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if(htim->Instance == TIM3){
-		//PIDController_Update(&pid, PID_targetSpeed, PID_measuredSpeed);
+		PIDController_Update(&pid, PID_targetSpeed, PID_measuredSpeed);
 	}
 }
 

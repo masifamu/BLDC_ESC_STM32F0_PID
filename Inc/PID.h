@@ -6,23 +6,20 @@
 #define MIN_THROTTLE 0
 #define MAX_THROTTLE 4095
 #define MIN_RPM      0
-#define MAX_RPM      220
+#define MAX_RPM      250
 
-#define MIN_PWM_WIDTH   5
-#define MAX_PWM_WIDTH   240
+#define MIN_PWM_WIDTH   1
+#define MAX_PWM_WIDTH   450
 
 /* Controller parameters */
-//#define PID_KP  1.0f//50.0f
-//#define PID_KI  15.85f//0.5f
-//#define PID_KD  0.44f//0.25f
 #define PID_KP  0.5f
 #define PID_KI  0.5f
 #define PID_KD  0.004f
 
 #define PID_TAU 0.02f//lower value avoids the higher amplitude overshoot
 
-#define PID_LIM_MIN    5.0f
-#define PID_LIM_MAX  240.0f//50% of allowable pwmwidth
+#define PID_LIM_MIN    1.0f
+#define PID_LIM_MAX  450.0f//50% of allowable pwmwidth
 
 #define PID_LIM_MIN_INT -500.0f
 #define PID_LIM_MAX_INT  500.0f
