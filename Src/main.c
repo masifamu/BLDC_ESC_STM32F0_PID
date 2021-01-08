@@ -26,6 +26,7 @@
 #include "usart.h"
 #include "gpio.h"
 
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "bldc.h"
@@ -51,13 +52,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-#ifdef UART_COMM_DEBUG
 char printDataString[100] = "buffer here\r\n";//{'\0',};
-#endif
-
-#ifdef UART_THROTTLE_DEBUG
-char printDataString[100] = "buffer here\r\n";//{'\0',};
-#endif
 
 uint16_t ADCBuffer[6]={0,};
 extern uint32_t time;
@@ -65,11 +60,6 @@ extern uint8_t toUpdate;
 uint32_t localTime=0;
 
 extern uint16_t noOfHSCuts;
-
-uint16_t PID_targetSpeed=0,PID_measuredSpeed=0;
-/* Initialise PID controller */
-	PIDController pid = { PID_KP, PID_KI, PID_KD,PID_TAU,PID_LIM_MIN, PID_LIM_MAX,PID_LIM_MIN_INT, PID_LIM_MAX_INT,SAMPLE_TIME_S };
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -92,21 +82,9 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	uint16_t pwmWidth=0;
 	uint16_t throtle=0;
-	
-#ifdef MEASURE_POWER
-	uint16_t battVoltage=0,currentDrawn=0;
-	float powerConsumed=0.0f;
-#endif
-#ifdef UART_COMM_DEBUG
-	uint8_t hour=0,minute=0,second=0,rpm;
-	uint16_t procTemp=0,heatSinkTemp=0,procVolt=0;
-#endif
-	uint16_t rpm;
-	uint32_t msStampS=0;
 
-#ifdef MEASURE_POWER
-	uint32_t msStampV=0,timeStampPower=0;
-#endif
+	uint8_t rpm;
+	uint32_t msStampS=0;
   /* USER CODE END 1 */
   
 
@@ -132,26 +110,23 @@ int main(void)
   MX_ADC_Init();
   MX_TIM1_Init();
   MX_USART1_UART_Init();
-  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-	
 	HAL_ADCEx_Calibration_Start(&hadc);
 	HAL_ADC_Start_DMA(&hadc,(uint32_t*)&ADCBuffer,6);
 	
 	BLDC_Init();
+  
+	HAL_GPIO_WritePin(GPIOA,GPIO_PIN_12,GPIO_PIN_SET);
 	
-	PIDController_Init(&pid);
-	
-	FIO_SET(GPIOA, BLUE_LED);
+	//PID setting
+	SetOutputLimits(1,240);
+	SetMode(AUTOMATIC);
+	SetControllerDirection(DIRECT);
+	SetSampleTime(1000);
+	SetTunings(0.5,0.5,0.004);
 	
 	msStampS=time;
-
-#ifdef MEASURE_POWER
-	msStampV=time;
-	timeStampPower = time;
-#endif
-  /* USER CODE END 2 */
-
+	/* USER CODE END 2 */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -160,74 +135,36 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 		
-		throtle = ((throtle<<3)-throtle+ADCBuffer[0])>>3;
+		//PID functions
+		setPIDInput(rpm,mapFunction(throtle));
+		Compute();
+		
+		
+		throtle=ADCBuffer[0];
 		//Checking for throttle accident management
 		if(!isThrotleProperlyConnected(time,throtle)){
 			while(1){
-				FIO_FLP(GPIOB, GREEN_LED);
+				HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_4);
 				HAL_Delay(200);
 			}
 		}
-#ifdef MEASURE_POWER
-		//measuring battery voltage
-		//anding is to avoid the error due to two lower bits. 3.3*(15.6+1)*1000=54780, shifting right by 12bit = div by 4096
-		battVoltage = (uint16_t)(((uint32_t)ADCBuffer[1] * 54780)>>12)/1000 ;
-		if(battVoltage < minBattThreVolt | battVoltage > maxBattThreVolt){
-			if(time-msStampV >= waitAftLowVoltDet){//if voltage is out of range for 5sec then turn everything off and blink PB3 and PB4 together at 500ms.
-				BLDC_MotorStop();
-				while(1){
-					FIO_FLP(GPIOB, YELLOW_LED|GREEN_LED);
-					HAL_Delay(500);
-				}
-			}
-			msStampV=time;
-		}
-		
-		//measuring current
-		currentDrawn = getCurrentDrawn(ADCBuffer[2]);
-		
-		//measuring power consumed
-		
-		powerConsumed += ((((float)battVoltage*currentDrawn)*(float)(time-timeStampPower))/3600000.0f);
-		timeStampPower = time;
-#endif
-#ifdef UART_COMM_DEBUG
-		//measuring heatSink temperature
-		heatSinkTemp = getHeatSinkTemp(ADCBuffer[3]);
-		
-		//measuring processor temperature 
-		procTemp = getProcTemp(ADCBuffer[4]);
 
-		//measuring internal processor voltage
-		procVolt = getProcVoltage(ADCBuffer[5]);
-		
-		//measuring ON-time
-		hour = (uint8_t)(((time/1000)/60)/60);
-		minute = (uint8_t)(((time/1000)/60)%60);
-		second = (uint8_t)((time/1000)%60);
-#endif		
 		//meauring RPM at every 1sec interval
 		if(time-msStampS >=1000){
 			rpm=(uint16_t)((noOfHSCuts*60)/HSCutsInOneCycle);
 			noOfHSCuts=0;
 			msStampS=time;
-			static int filterRPM;
-			filterRPM = ((filterRPM<<2)-filterRPM+rpm)>>2; 
-			rpm=filterRPM;
 		}
-
-#ifdef UART_THROTTLE_DEBUG
-		static uint16_t t;
-		//snprintf(printDataString,100, "PWM=%3d TH=%4d TS=%d MS=%d CO=%f\n\r", pwmWidth,throtle,PID_targetSpeed,PID_measuredSpeed,pid.out);
-		snprintf(printDataString,100, "%d,%d,%f,%d,%d\n", t++,PID_measuredSpeed,pid.out,PID_targetSpeed,pwmWidth);
-		HAL_UART_Transmit(&huart1, (uint8_t*)printDataString, strlen(printDataString), HAL_MAX_DELAY);
-#endif
-
+		
+		//static uint16_t t;
+		//snprintf(printDataString,100, "%d,%d,%f,%d,%d\n",t++,rpm,getPIDOutput(),100,pwmWidth);
+		//HAL_UART_Transmit(&huart1, (uint8_t*)printDataString, strlen(printDataString), HAL_MAX_DELAY);
+		
 		//motor control block
     if (throtle > BLDC_ADC_START) {
 			if (BLDC_MotorGetSpin() == BLDC_STOP) {
 				// Check Reverse pin
-				if (FIO_GET(GPIOA, MOTOR_ROTATION_SELECT_PIN) != 0) {
+				if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_15) != 0) {
 					// Forward
 					BLDC_MotorSetSpin(BLDC_CW);
 					BLDC_MotorSetStopDirection(BLDC_CW);
@@ -242,27 +179,17 @@ int main(void)
 				BLDC_UpdatePWMWidth(toUpdate);
 			}
 			
-			FIO_SET(GPIOB, GREEN_LED);
-			
-    	pwmWidth=(uint16_t)pid.out;//BLDC_ADCToPWM(throtle);
+			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_4,GPIO_PIN_SET);
+    	pwmWidth=(uint16_t)getPIDOutput();//BLDC_ADCToPWM(throtle);
 			BLDC_SetPWM(pwmWidth);
-			
-			//implementing the PID controller here.
-			PID_targetSpeed = 100;//mapFunction(throtle);
-			PID_measuredSpeed = rpm;
-			
     }else{
 			if (BLDC_MotorGetSpin() != BLDC_STOP) {
 				//meaning motor is still running
 				if (throtle < BLDC_ADC_STOP) {
 					BLDC_MotorStop();
-					BLDC_MotorSetSpin(BLDC_STOP);//manage it
+					BLDC_MotorSetSpin(BLDC_STOP);
 				}
 			}
-			//implementing the PID controller here.
-			PID_targetSpeed = 0;
-			PID_measuredSpeed = rpm;
-			
 			toggleGreenLED();
     }
    }

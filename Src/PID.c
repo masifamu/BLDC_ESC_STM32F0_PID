@@ -1,4 +1,51 @@
 #include "PID.h"
+#include "stdint.h"
+
+extern uint32_t time;
+
+/*working variables*/
+unsigned long lastTime;
+double Input, Output, Setpoint;
+double ITerm, lastInput;
+double kp, ki, kd;
+int SampleTime = 1000; //1 sec
+double outMin, outMax;
+
+uint8_t inAuto = 0;
+int controllerDirection = DIRECT;
+ 
+void Compute(void)
+{
+   if(!inAuto) return;
+   unsigned long now = (unsigned long)time;
+   int timeChange = (now - lastTime);
+   if(timeChange>=SampleTime)
+   {
+      /*Compute all the working error variables*/
+      double error = Setpoint - Input;
+      ITerm+= (ki * error);
+      if(ITerm > outMax) ITerm= outMax;
+      else if(ITerm < outMin) ITerm= outMin;
+      double dInput = (Input - lastInput);
+ 
+      /*Compute PID Output*/
+      Output = kp * error + ITerm- kd * dInput;
+      if(Output > outMax) Output = outMax;
+      else if(Output < outMin) Output = outMin;
+ 
+      /*Remember some variables for next time*/
+      lastInput = Input;
+      lastTime = now;
+   }
+}
+ 
+double getPIDOutput(void){
+	return Output;
+}
+void setPIDInput(double measuredValue, double setPoint){
+	Input = measuredValue;
+	Setpoint = setPoint;
+}
 
 int mapFunction(int throttle){
     int y=0;
@@ -6,79 +53,86 @@ int mapFunction(int throttle){
     return y;
 }
 
-void PIDController_Init(PIDController *pid) {
+//to tune the PID on the fly
+void SetTunings(double Kp, double Ki, double Kd)
+{
+   if (Kp<0 || Ki<0|| Kd<0) return;
+ 
+  double SampleTimeInSec = ((double)SampleTime)/1000;
+   kp = Kp;
+   ki = Ki * SampleTimeInSec;
+   kd = Kd / SampleTimeInSec;
+ 
+  if(controllerDirection ==REVERSE)
+   {
+      kp = (0 - kp);
+      ki = (0 - ki);
+      kd = (0 - kd);
+   }
+}
+ 
+//to call the PID at regular interval
+void SetSampleTime(int NewSampleTime)
+{
+   if (NewSampleTime > 0)
+   {
+      double ratio  = (double)NewSampleTime
+                      / (double)SampleTime;
+      ki *= ratio;
+      kd /= ratio;
+      SampleTime = (unsigned long)NewSampleTime;
+   }
+}
+ 
 
-	/* Clear controller variables */
-	pid->integrator = 0.0f;
-	pid->prevError  = 0.0f;
+//To avoid the windup problem
+void SetOutputLimits(double Min, double Max)
+{
+   if(Min > Max) return;
+   outMin = Min;
+   outMax = Max;
+ 
+   if(Output > outMax) Output = outMax;
+   else if(Output < outMin) Output = outMin;
+ 
+   if(ITerm > outMax) ITerm= outMax;
+   else if(ITerm < outMin) ITerm= outMin;
+}
+ 
+//This function is needed when we want to set the ouput variable(manual) of PID manually
+//and when do not want the PID to set the ouput variable
+//	This is something that we need whenver we want to turn the PID function OFF and want 
+//	its ouput to be at 0 or some value we can do this but before doing so we need to call 
+//	setMode function with MANUAL as its parameter
+void SetMode(int Mode)
+{
+    uint8_t newAuto = (Mode == AUTOMATIC);
+    if(newAuto == !inAuto)
+    {  /*we just went from manual to auto*/
+        Initialize();
+    }
+    inAuto = newAuto;
+}
+ 
 
-	pid->differentiator  = 0.0f;
-	pid->prevMeasurement = 0.0f;
-
-	pid->out = 0.0f;
-
+//This function is to track the transition of mode from MANUAL to AUTOMATIC
+//
+//will be call from setMode function
+void Initialize(void)
+{
+   lastInput = Input;
+   ITerm = Output;
+   if(ITerm > outMax) ITerm= outMax;
+   else if(ITerm < outMin) ITerm= outMin;
 }
 
-float PIDController_Update(PIDController *pid, float setpoint, float measurement) {
+//This function is needed when the pid out is supposed to increase as the reference point increase (forward or direct)
+//or when the pid output is supposed to increase as the reference point decrease (reverse direction)
+//it motoring application we are most often going to use forward direction, because as the throttle increase the pid output 
+//supposed to increase
 
-	/*
-	* Error signal
-	*/
-    float error = setpoint - measurement;
-
-
-	/*
-	* Proportional
-	*/
-    float proportional = pid->Kp * error;
-
-
-	/*
-	* Integral
-	*/
-    pid->integrator = pid->integrator + 0.5f * pid->Ki * pid->T * (error + pid->prevError);
-
-	/* Anti-wind-up via integrator clamping */
-    if (pid->integrator > pid->limMaxInt) {
-
-        pid->integrator = pid->limMaxInt;
-
-    } else if (pid->integrator < pid->limMinInt) {
-
-        pid->integrator = pid->limMinInt;
-
-    }
-
-
-	/*
-	* Derivative (band-limited differentiator)
-	*/
-		
-    pid->differentiator = -(2.0f * pid->Kd * (measurement - pid->prevMeasurement)	/* Note: derivative on measurement, therefore minus sign in front of equation! */
-                        + (2.0f * pid->tau - pid->T) * pid->differentiator)
-                        / (2.0f * pid->tau + pid->T);
-
-
-	/*
-	* Compute output and apply limits
-	*/
-    pid->out = proportional + pid->integrator + pid->differentiator;
-
-    if (pid->out > pid->limMax) {
-
-        pid->out = pid->limMax;
-
-    } else if (pid->out < pid->limMin) {
-
-        pid->out = pid->limMin;
-
-    }
-
-	/* Store error and measurement for later use */
-    pid->prevError       = error;
-    pid->prevMeasurement = measurement;
-
-	/* Return controller output */
-    return pid->out;
-
+//should be called before the PID runs.
+void SetControllerDirection(int Direction)
+{
+   controllerDirection = Direction;
 }
