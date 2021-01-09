@@ -3,7 +3,7 @@
 
 #include "stdint.h"
 
-#define BLDC_CHOPPER_PERIOD 480
+#define BLDC_CHOPPER_PERIOD 2880
 #define BLDC_SPEEDING_FACTOR 0.8
 
 #define BLDC_PWMTOPKEYS

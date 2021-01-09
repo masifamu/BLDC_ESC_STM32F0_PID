@@ -1,5 +1,6 @@
 #include "PID.h"
 #include "stdint.h"
+#include "bldc.h"
 
 extern uint32_t time;
 
@@ -17,10 +18,10 @@ int controllerDirection = DIRECT;
 void Compute(void)
 {
    if(!inAuto) return;
-   unsigned long now = (unsigned long)time;
-   int timeChange = (now - lastTime);
-   if(timeChange>=SampleTime)
-   {
+//   unsigned long now = (unsigned long)time;
+//   int timeChange = (now - lastTime);
+//   if(timeChange>=SampleTime)
+//   {
       /*Compute all the working error variables*/
       double error = Setpoint - Input;
       ITerm+= (ki * error);
@@ -35,10 +36,14 @@ void Compute(void)
  
       /*Remember some variables for next time*/
       lastInput = Input;
-      lastTime = now;
-   }
+//      lastTime = now;
+//   }
 }
  
+void setPIDOutput(double out){
+	Output = out;
+}
+
 double getPIDOutput(void){
 	return Output;
 }
@@ -49,6 +54,11 @@ void setPIDInput(double measuredValue, double setPoint){
 
 int mapFunction(int throttle){
     int y=0;
+	
+//		if (throttle < BLDC_ADC_STOP) { return 0; }
+
+//		if (throttle > BLDC_ADC_MAX) {	return 2500; }
+		
     y=((throttle-MIN_THROTTLE)*(MAX_RPM-MIN_RPM)/(MAX_THROTTLE-MIN_THROTTLE))+MIN_RPM;
     return y;
 }

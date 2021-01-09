@@ -1,6 +1,6 @@
 Configuration	ESCCODE_30102020
 STM32CubeMX 	5.4.0
-Date	10/31/2020
+Date	01/09/2021
 MCU	STM32F030K6Tx
 
 
@@ -22,6 +22,7 @@ TIM1	PWM Generation CH1	TIM1_CH1	PA8
 TIM1	PWM Generation CH2	TIM1_CH2	PA9
 TIM1	PWM Generation CH3	TIM1_CH3	PA10
 TIM1	Activate-Break-Input	TIM1_BKIN	PA6
+TIM3	Internal Clock	TIM3_VS_ClockSourceINT	VP_TIM3_VS_ClockSourceINT
 USART1	Asynchronous	USART1_RX	PA3
 USART1	Asynchronous	USART1_TX	PA2
 
@@ -70,6 +71,7 @@ TIM1	PWM Generation CH1	TIM1_CH1	PA8
 TIM1	PWM Generation CH2	TIM1_CH2	PA9
 TIM1	PWM Generation CH3	TIM1_CH3	PA10
 TIM1	Activate-Break-Input	TIM1_BKIN	PA6
+TIM3	Internal Clock	TIM3_VS_ClockSourceINT	VP_TIM3_VS_ClockSourceINT
 USART1	Asynchronous	USART1_RX	PA3
 USART1	Asynchronous	USART1_TX	PA2
 
@@ -108,7 +110,7 @@ SOFTWARE PROJECT
 
 Project Settings : 
 Project Name : ESCCODE_30102020
-Project Folder : D:\Desktop from D drive\ARM codes\ESCCODE_30102020
+Project Folder : D:\Desktop from D drive\ESC_CODE_DEVELOPMENT\BLDC_ESC_CODE_FOR_STM32F0_PID_modification_09012021
 Toolchain / IDE : MDK-ARM V5.27
 Firmware Package Name and Version : STM32Cube FW_F0 V1.11.1
 

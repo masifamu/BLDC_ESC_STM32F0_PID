@@ -17,6 +17,7 @@
 
 int mapFunction(int throttle);
 double getPIDOutput(void);
+void setPIDOutput(double out);
 void setPIDInput(double measuredValue, double setPoint);
 void Compute(void);
 void SetTunings(double Kp, double Ki, double Kd);
