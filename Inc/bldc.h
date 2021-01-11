@@ -27,6 +27,8 @@
 #define HSCutsInOneCycle          266
 
 
+typedef enum{ STOPPED, RUNNING, ACCELERATING, DEACCELERATING} MotorState;
+
 #define UH	0
 #define UL	1
 #define VH	2

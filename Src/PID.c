@@ -55,9 +55,9 @@ void setPIDInput(double measuredValue, double setPoint){
 int mapFunction(int throttle){
     int y=0;
 	
-//		if (throttle < BLDC_ADC_STOP) { return 0; }
+		if (throttle < BLDC_ADC_STOP) { return 0; }
 
-//		if (throttle > BLDC_ADC_MAX) {	return 2500; }
+		if (throttle > BLDC_ADC_MAX) {	return 2500; }
 		
     y=((throttle-MIN_THROTTLE)*(MAX_RPM-MIN_RPM)/(MAX_THROTTLE-MIN_THROTTLE))+MIN_RPM;
     return y;
@@ -146,3 +146,12 @@ void SetControllerDirection(int Direction)
 {
    controllerDirection = Direction;
 }
+
+void resetPID(void){
+	Input = 0;
+	Output = 0;
+	Setpoint = 0;
+	ITerm = 0;
+	lastInput = 0;
+}
+

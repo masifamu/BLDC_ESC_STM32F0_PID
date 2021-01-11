@@ -25,6 +25,7 @@ void SetSampleTime(int NewSampleTime);
 void SetOutputLimits(double Min, double Max);
 void SetMode(int Mode);
 void Initialize(void);
+void resetPID(void);
 void SetControllerDirection(int Direction);
 
 #endif
