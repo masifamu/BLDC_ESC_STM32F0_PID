@@ -26,7 +26,6 @@
 #include "usart.h"
 #include "gpio.h"
 
-
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "bldc.h"
@@ -57,7 +56,14 @@ char printDataString[100] = "buffer here\r\n";//{'\0',};
 uint16_t ADCBuffer[6]={0,};
 extern uint32_t time;
 extern uint8_t toUpdate;
-uint32_t localTime=0;
+
+uint16_t throtle=0;
+uint16_t rpm=0;
+uint16_t targetRPM=0;
+
+static uint16_t t;
+
+MotorState motorState;
 
 extern uint16_t noOfHSCuts;
 /* USER CODE END PV */
@@ -70,7 +76,22 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+	if(htim->Instance == TIM3){
+		static uint32_t counter;
+		
+		t++;
+		rpm=((rpm<<5)-rpm+(uint16_t)((noOfHSCuts*1200)/HSCutsInOneCycle))>>5;
+		noOfHSCuts=0;
+		
+		if(rpm == 0) counter++; else counter = 0;
+		if(counter >= 60) motorState = STOPPED; else motorState = RUNNING;
+		
+		Compute();
+		
+		throtle = ((throtle<<3)-throtle+ADCBuffer[0])>>3;
+	}
+}
 /* USER CODE END 0 */
 
 /**
@@ -81,10 +102,6 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 	uint16_t pwmWidth=0;
-	uint16_t throtle=0;
-
-	uint8_t rpm;
-	uint32_t msStampS=0;
   /* USER CODE END 1 */
   
 
@@ -110,7 +127,9 @@ int main(void)
   MX_ADC_Init();
   MX_TIM1_Init();
   MX_USART1_UART_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+	
 	HAL_ADCEx_Calibration_Start(&hadc);
 	HAL_ADC_Start_DMA(&hadc,(uint32_t*)&ADCBuffer,6);
 	
@@ -119,14 +138,16 @@ int main(void)
 	HAL_GPIO_WritePin(GPIOA,GPIO_PIN_12,GPIO_PIN_SET);
 	
 	//PID setting
-	SetOutputLimits(1,240);
-	SetMode(AUTOMATIC);
+	SetOutputLimits(1,2500);
+	SetMode(MANUAL);
 	SetControllerDirection(DIRECT);
-	SetSampleTime(1000);
-	SetTunings(0.5,0.5,0.004);
-	
-	msStampS=time;
-	/* USER CODE END 2 */
+	SetTunings(20,20,0.2);
+	SetSampleTime(50);
+	__HAL_TIM_ENABLE_IT(&htim3,TIM_IT_UPDATE);
+	__HAL_TIM_ENABLE(&htim3);
+
+  /* USER CODE END 2 */
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -134,31 +155,20 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		
-		//PID functions
-		setPIDInput(rpm,mapFunction(throtle));
-		Compute();
+		targetRPM = ((targetRPM<<5)-targetRPM+mapFunction(throtle))>>5;
+		setPIDInput(rpm,targetRPM);
 		
 		
-		throtle=ADCBuffer[0];
-		//Checking for throttle accident management
-		if(!isThrotleProperlyConnected(time,throtle)){
-			while(1){
-				HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_4);
-				HAL_Delay(200);
-			}
-		}
-
-		//meauring RPM at every 1sec interval
-		if(time-msStampS >=1000){
-			rpm=(uint16_t)((noOfHSCuts*60)/HSCutsInOneCycle);
-			noOfHSCuts=0;
-			msStampS=time;
-		}
+//		//Checking for throttle accident management
+//		if(!isThrotleProperlyConnected(time,throtle)){
+//			while(1){
+//				HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_4);
+//				HAL_Delay(200);
+//			}
+//		}
 		
-		//static uint16_t t;
-		//snprintf(printDataString,100, "%d,%d,%f,%d,%d\n",t++,rpm,getPIDOutput(),100,pwmWidth);
-		//HAL_UART_Transmit(&huart1, (uint8_t*)printDataString, strlen(printDataString), HAL_MAX_DELAY);
+		snprintf(printDataString,100, "%d,%d,%0.2f,%d,%d\n",t,rpm,getPIDOutput(),targetRPM,pwmWidth);//heavy code
+		HAL_UART_Transmit(&huart1,(uint8_t*)printDataString,strlen(printDataString),HAL_MAX_DELAY);
 		
 		//motor control block
     if (throtle > BLDC_ADC_START) {
@@ -180,7 +190,10 @@ int main(void)
 			}
 			
 			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_4,GPIO_PIN_SET);
-    	pwmWidth=(uint16_t)getPIDOutput();//BLDC_ADCToPWM(throtle);
+			
+			SetMode(AUTOMATIC);
+    	pwmWidth=1+(((pwmWidth<<5)-pwmWidth+(uint16_t)getPIDOutput())>>5);
+			
 			BLDC_SetPWM(pwmWidth);
     }else{
 			if (BLDC_MotorGetSpin() != BLDC_STOP) {
@@ -188,10 +201,17 @@ int main(void)
 				if (throtle < BLDC_ADC_STOP) {
 					BLDC_MotorStop();
 					BLDC_MotorSetSpin(BLDC_STOP);
+					if(motorState == RUNNING){
+						SetMode(MANUAL);
+//						setPIDOutput(1);
+					}
 				}
 			}
 			toggleGreenLED();
     }
+		if(motorState == STOPPED){
+			resetPID();
+		}
    }
   /* USER CODE END 3 */
 }
@@ -211,7 +231,10 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL12;
+  RCC_OscInitStruct.PLL.PREDIV = RCC_PREDIV_DIV1;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -220,11 +243,11 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
   {
     Error_Handler();
   }

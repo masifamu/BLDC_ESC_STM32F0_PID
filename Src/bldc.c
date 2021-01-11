@@ -22,7 +22,7 @@ uint8_t BLDC_MotorSpin = 0,toUpdate=0,stoppingDirection=0;
 uint8_t BLDC_STATE[6] = {0,0,0,0,0,0};
 uint16_t PWMWIDTH=0;
 extern uint32_t time;
-extern uint32_t localTime;
+
 
 uint16_t noOfHSCuts=0;
 
@@ -86,10 +86,16 @@ void BLDC_Init(void) {
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_pin) {
-	HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_3);
-	BLDC_MotorCommutation(BLDC_HallSensorsGetPosition());
+	static uint8_t prevHALLstate, currHALLstate;
+	currHALLstate = BLDC_HallSensorsGetPosition();
 	
-	noOfHSCuts++;
+	if(currHALLstate != prevHALLstate){
+		HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_3);
+		BLDC_MotorCommutation(currHALLstate);
+		
+		noOfHSCuts++;
+		prevHALLstate = currHALLstate;
+	}
 }
 
 uint8_t BLDC_HallSensorsGetPosition(void) {
@@ -110,7 +116,7 @@ void BLDC_MotorSetStopDirection(uint8_t stoppingSpin){
 }
 
 
-void BLDC_MotorStop(void)
+void BLDC_MotorStop()
 {
 	BLDC_SetPWM(1);
 }
@@ -134,7 +140,6 @@ void BLDC_MotorResetInverter(void)
 
 #ifdef BLDC_PWMTOPKEYS
 void BLDC_MotorCommutation(uint16_t hallpos){
-	localTime=time;
 	
 	if ((BLDC_MotorSpin == BLDC_CW || BLDC_MotorSpin == BLDC_STOP) && stoppingDirection == BLDC_CW) {
 		memcpy(BLDC_STATE, BLDC_BRIDGE_STATE_FORWARD[hallpos], sizeof(BLDC_STATE));
@@ -186,8 +191,8 @@ uint16_t BLDC_ADCToPWM(uint16_t ADC_VALUE) {
 
 	tmp = (uint32_t)(ADC_VALUE-BLDC_ADC_STOP) * (uint32_t)(BLDC_CHOPPER_PERIOD * BLDC_SPEEDING_FACTOR) / (uint32_t)(BLDC_ADC_MAX - BLDC_ADC_START);
 
-	//to maintain the lower PWM width
-	return (uint16_t) tmp-3;
+	//at the time of starting the throtle needs to be at 1151 and hence temp=49min
+	return (uint16_t) tmp-30;
 }
 
 void BLDC_SetPWM(uint16_t PWM)

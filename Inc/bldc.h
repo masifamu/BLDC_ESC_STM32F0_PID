@@ -3,7 +3,7 @@
 
 #include "stdint.h"
 
-#define BLDC_CHOPPER_PERIOD 480
+#define BLDC_CHOPPER_PERIOD 2880
 #define BLDC_SPEEDING_FACTOR 0.8
 
 #define BLDC_PWMTOPKEYS
@@ -26,6 +26,8 @@
 #define wheelDia                  0.65
 #define HSCutsInOneCycle          266
 
+
+typedef enum{ STOPPED, RUNNING, ACCELERATING, DEACCELERATING} MotorState;
 
 #define UH	0
 #define UL	1
