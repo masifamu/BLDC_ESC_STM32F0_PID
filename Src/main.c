@@ -155,6 +155,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+		
 		if( __HAL_TIM_GET_FLAG(&htim1,TIM_FLAG_BREAK) == 1){//break pressed
 			breakState = BREAK_PRESSED;
 			SetMode(MANUAL);
