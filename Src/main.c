@@ -64,6 +64,7 @@ uint16_t targetRPM=0;
 static uint16_t t;
 
 MotorState motorState;
+BreakState breakState;
 
 extern uint16_t noOfHSCuts;
 /* USER CODE END PV */
@@ -78,18 +79,17 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if(htim->Instance == TIM3){
-		static uint32_t counter;
 		
+		static uint32_t counter;
 		t++;
+		
 		rpm=((rpm<<5)-rpm+(uint16_t)((noOfHSCuts*1200)/HSCutsInOneCycle))>>5;
 		noOfHSCuts=0;
 		
 		if(rpm == 0) counter++; else counter = 0;
-		if(counter >= 60) motorState = STOPPED; else motorState = RUNNING;
+		if(counter >= 10) motorState = STOPPED; else motorState = RUNNING;
 		
 		Compute();
-		
-		throtle = ((throtle<<3)-throtle+ADCBuffer[0])>>3;
 	}
 }
 /* USER CODE END 0 */
@@ -155,9 +155,17 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+		if( __HAL_TIM_GET_FLAG(&htim1,TIM_FLAG_BREAK) == 1){//break pressed
+			breakState = BREAK_PRESSED;
+			SetMode(MANUAL);
+			__HAL_TIM_CLEAR_FLAG(&htim1, TIM_FLAG_BREAK);
+		}else{//released
+			breakState = BREAK_RELEASED;
+		}
+		
+		throtle = ((throtle<<3)-throtle+ADCBuffer[0])>>3;
 		targetRPM = ((targetRPM<<5)-targetRPM+mapFunction(throtle))>>5;
 		setPIDInput(rpm,targetRPM);
-		
 		
 //		//Checking for throttle accident management
 //		if(!isThrotleProperlyConnected(time,throtle)){
@@ -190,10 +198,11 @@ int main(void)
 			}
 			
 			HAL_GPIO_WritePin(GPIOB,GPIO_PIN_4,GPIO_PIN_SET);
-			
-			SetMode(AUTOMATIC);
-    	pwmWidth=1+(((pwmWidth<<5)-pwmWidth+(uint16_t)getPIDOutput())>>5);
-			
+			//check here if the break is pressed or not, if pressed it this two should not execute else execute
+			if(breakState == BREAK_RELEASED){
+				SetMode(AUTOMATIC);
+				pwmWidth=1+(((pwmWidth<<5)-pwmWidth+(uint16_t)getPIDOutput())>>5);
+			} else { pwmWidth =30;}
 			BLDC_SetPWM(pwmWidth);
     }else{
 			if (BLDC_MotorGetSpin() != BLDC_STOP) {
@@ -201,16 +210,17 @@ int main(void)
 				if (throtle < BLDC_ADC_STOP) {
 					BLDC_MotorStop();
 					BLDC_MotorSetSpin(BLDC_STOP);
-					if(motorState == RUNNING){
 						SetMode(MANUAL);
-//						setPIDOutput(1);
-					}
 				}
 			}
 			toggleGreenLED();
     }
 		if(motorState == STOPPED){
 			resetPID();
+			if(throtle < BLDC_ADC_STOP){
+				BLDC_SetPWM(1);
+				BLDC_UpdatePWMWidth(toUpdate);
+			}
 		}
    }
   /* USER CODE END 3 */

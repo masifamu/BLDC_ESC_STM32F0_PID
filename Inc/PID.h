@@ -24,6 +24,7 @@ void SetTunings(double Kp, double Ki, double Kd);
 void SetSampleTime(int NewSampleTime);
 void SetOutputLimits(double Min, double Max);
 void SetMode(int Mode);
+int GetMode(void);
 void Initialize(void);
 void resetPID(void);
 void SetControllerDirection(int Direction);

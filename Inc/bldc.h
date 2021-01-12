@@ -28,6 +28,7 @@
 
 
 typedef enum{ STOPPED, RUNNING, ACCELERATING, DEACCELERATING} MotorState;
+typedef enum{ BREAK_PRESSED, BREAK_RELEASED} BreakState;
 
 #define UH	0
 #define UL	1

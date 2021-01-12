@@ -192,7 +192,9 @@ uint16_t BLDC_ADCToPWM(uint16_t ADC_VALUE) {
 	tmp = (uint32_t)(ADC_VALUE-BLDC_ADC_STOP) * (uint32_t)(BLDC_CHOPPER_PERIOD * BLDC_SPEEDING_FACTOR) / (uint32_t)(BLDC_ADC_MAX - BLDC_ADC_START);
 
 	//at the time of starting the throtle needs to be at 1151 and hence temp=49min
-	return (uint16_t) tmp-30;
+	//if the motor does'nt start from the rest then decrese the constant value being substracted here.
+	//so that the starting pulse to the motor should increase
+	return (uint16_t) tmp-20;
 }
 
 void BLDC_SetPWM(uint16_t PWM)

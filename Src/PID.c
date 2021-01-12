@@ -12,7 +12,7 @@ double kp, ki, kd;
 int SampleTime = 1000; //1 sec
 double outMin, outMax;
 
-uint8_t inAuto = 0;
+int inAuto = 0;
 int controllerDirection = DIRECT;
  
 void Compute(void)
@@ -124,7 +124,10 @@ void SetMode(int Mode)
     inAuto = newAuto;
 }
  
-
+int GetMode(void)
+{
+    return inAuto;
+}
 //This function is to track the transition of mode from MANUAL to AUTOMATIC
 //
 //will be call from setMode function
